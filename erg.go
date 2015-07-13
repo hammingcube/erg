@@ -6,7 +6,7 @@ import (
 	"os"
 	"github.com/maddyonline/pipe"
 	_ "path"
-	_ "strings"
+	"strings"
 )
 
 type EmberResource struct {
@@ -19,6 +19,12 @@ type EmberApp struct {
 	Resource *EmberResource
 }
 
+const ACTIVE_MODEL_ADAPTER = `import DS from 'ember-data';
+
+export default DS.ActiveModelAdapter.extend({
+	namespace: 'api'
+});`
+
 const script = `
 ember new borrowers && \
 ember g resource friends firstName:string lastName:string email:string twitter:string totalArticles:number 
@@ -30,9 +36,19 @@ ember g route friends/edit --path=:friend_id/edit && \
 ember g controller friends/base && \
 ember g controller friends/new && \
 ember g controller friends/edit && \
-ember g template friends/-form 
-
+ember g template friends/-form
 `
+
+func updateAdapter(app *EmberApp) pipe.Pipe {
+	p := pipe.Script(
+		pipe.Exec("ember", "g", "adapter", "application"),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(ACTIVE_MODEL_ADAPTER)),
+			pipe.WriteFile("app/adapters/application.js", 0644),
+		),
+	)
+	return p
+}
 
 func createEmberApp(app *EmberApp) pipe.Pipe {
 	genResourceArgs := append([]string{"g", "resource", app.Resource.Name}, app.Resource.Properties...)
@@ -40,6 +56,7 @@ func createEmberApp(app *EmberApp) pipe.Pipe {
 		pipe.Exec("ember", "new", app.Name),
 		pipe.ChDir(app.Name),
 		pipe.Exec("ember", genResourceArgs...),
+		updateAdapter(app),
 	)
 	return p
 }
