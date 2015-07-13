@@ -58,6 +58,13 @@ const INDEX = `
 </ul>
 `
 
+const INDEX_ROUTE = `
+import Ember from 'ember';
+export default Ember.Route.extend({ model: function() {
+return this.store.findAll('friend'); }
+});
+`
+
 const ADD_NEW = `<h1>Adding New Friend</h1> {{partial "friends/form"}}`
 
 const script = `
@@ -103,6 +110,10 @@ func createIndex(app *EmberApp) pipe.Pipe {
 			pipe.Read(strings.NewReader(INDEX)),
 			pipe.WriteFile("app/templates/friends/index.hbs", 0644),
 		),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(INDEX_ROUTE)),
+			pipe.WriteFile("app/routes/friends/index.js", 0644),
+		),
 	)
 	return p
 }
@@ -121,8 +132,8 @@ func createNew(app *EmberApp) pipe.Pipe {
 
 func createBasic(app *EmberApp) pipe.Pipe {
 	p := pipe.Script(
-		createForm(app),
 		createIndex(app),
+		createForm(app),
 		//pipe.Exec("ember", "g", "route", fmt.Sprintf("%s/new", app.Resource.Name)),
 		//pipe.Exec("ember", "g", "route", 
 		//	fmt.Sprintf("%s/show", app.Resource.Name), 
