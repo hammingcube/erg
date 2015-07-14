@@ -66,6 +66,49 @@ return this.store.findAll('friend'); }
 `
 
 const ADD_NEW = `<h1>Adding New Friend</h1> {{partial "friends/form"}}`
+const ADD_NEW_ROUTE_JS = `import Ember from 'ember';
+export default Ember.Route.extend({
+  model: function() {
+return this.store.createRecord('friend'); }
+});`
+
+const ADD_NEW_CONTROLLER_JS = `
+import Ember from 'ember';
+
+export default Ember.Controller.extend({
+	isValid: Ember.computed(
+		'model.email',
+		'model.firstName',
+		'model.lastName',
+		'model.twitter',
+		function() {
+			return !Ember.isEmpty(this.get('model.email')) &&
+			  !Ember.isEmpty(this.get('model.firstName')) &&
+			  !Ember.isEmpty(this.get('model.lastName')) &&
+			  !Ember.isEmpty(this.get('model.twitter'));
+			}
+	),
+	actions: {
+		save: function() {
+			console.log('+- save action in friends new controller');
+			if(this.get('isValid')) {
+				var _this = this;
+				this.get('model').save().then(function(friend) {
+					_this.transitionToRoute('friends.show', friend);
+				});
+			} else {
+				this.set('errorMessage', 'You have to fill all the fields');
+			}
+			return false;
+		},
+		cancel: function() {
+			console.log('+- cancel action in friends new controller');
+			this.transitionToRoute('friends');
+			return false;
+		}
+	}
+});
+`
 
 const script = `
 ember new borrowers && \
@@ -126,6 +169,14 @@ func createNew(app *EmberApp) pipe.Pipe {
 			pipe.Read(strings.NewReader(ADD_NEW)),
 			pipe.WriteFile("app/templates/friends/new.hbs", 0644),
 		),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(ADD_NEW_ROUTE_JS)),
+			pipe.WriteFile("app/routes/friends/new.js", 0644),
+		),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(ADD_NEW_CONTROLLER_JS)),
+			pipe.WriteFile("app/controllers/friends/new.js", 0644),
+		),
 	)
 	return p
 }
@@ -134,13 +185,14 @@ func createBasic(app *EmberApp) pipe.Pipe {
 	p := pipe.Script(
 		createIndex(app),
 		createForm(app),
+		createNew(app),
 		//pipe.Exec("ember", "g", "route", fmt.Sprintf("%s/new", app.Resource.Name)),
-		//pipe.Exec("ember", "g", "route", 
-		//	fmt.Sprintf("%s/show", app.Resource.Name), 
-		//	fmt.Sprintf("--path=:%s_id", strings.TrimSuffix(app.Resource.Name, "s")),),
-		//pipe.Exec("ember", "g", "route", 
-		//	fmt.Sprintf("%s/edit", app.Resource.Name), 
-		//	fmt.Sprintf("--path=:%s_id/edit", strings.TrimSuffix(app.Resource.Name, "s")),),
+		pipe.Exec("ember", "g", "route", 
+			fmt.Sprintf("%s/show", app.Resource.Name), 
+			fmt.Sprintf("--path=:%s_id", strings.TrimSuffix(app.Resource.Name, "s")),),
+		pipe.Exec("ember", "g", "route", 
+			fmt.Sprintf("%s/edit", app.Resource.Name), 
+			fmt.Sprintf("--path=:%s_id/edit", strings.TrimSuffix(app.Resource.Name, "s")),),
 		//pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/base", app.Resource.Name)),
 		//pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/new", app.Resource.Name)),
 		//pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/edit", app.Resource.Name)),
