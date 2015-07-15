@@ -7,6 +7,7 @@ import (
 	"github.com/maddyonline/pipe"
 	_ "path"
 	"strings"
+	"log"
 )
 
 type EmberResource struct {
@@ -270,8 +271,35 @@ func runScript(app *EmberApp) error {
 	return err
 }
 
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func prepare(dest string) {
+	yes, err := exists(dest)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if yes {
+		err = os.RemoveAll(dest)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	os.Mkdir(dest, 0777)
+}
+
 
 func main() {
+	prepare("new-app")
+	os.Chdir("new-app")
 	r := &EmberResource{
 		"friends", 
 		[]string{
