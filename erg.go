@@ -50,11 +50,22 @@ const FORM = `
 
 const INDEX = `
 <h1>Friends Index</h1>
-{{! The context here is the controller}} <h2>Total friends: {{model.length}}</h2>
+{{! The context here is the controller}} 
+<h2>Total friends: {{model.length}}</h2>
 <ul>
-{{#each friend in model}}
-<li>{{friend.id}} - {{friend.firstName}} {{friend.lastName}}</li>
+{{#each model as |friend|}}
+<li>
+    {{#link-to 'friends.show' friend}}
+      {{friend.firstName}} {{friend.lastName}}
+    {{/link-to}}
+</li>
 {{/each}}
+
+</ul>
+`
+const SHOW_PAGE = `
+<ul>
+<li>First Name: {{model.firstName}}</li> <li>Last Name: {{model.lastName}}</li> <li>Email: {{model.email}}</li> <li>twitter: {{model.twitter}}</li>
 </ul>
 `
 
@@ -72,41 +83,40 @@ export default Ember.Route.extend({
 return this.store.createRecord('friend'); }
 });`
 
-const ADD_NEW_CONTROLLER_JS = `
+const EDIT_PAGE = `<h1>Editing {{model.fullName}}</h1> {{partial 'friends/form'}}`
+const BASE_CONTROLLER = `
 import Ember from 'ember';
+export default Ember.Controller.extend({ isValid: Ember.computed(
+'model.email', 'model.firstName', 'model.lastName', 'twitter', function() {
+return !Ember.isEmpty(this.get('model.email')) && !Ember.isEmpty(this.get('model.firstName')) && !Ember.isEmpty(this.get('model.lastName')) && !Ember.isEmpty(this.get('model.twitter'));
+} ),
+actions: {
+save: function() {
+if (this.get('isValid')) { var _this = this;
+this.get('model').save().then(function(friend) { _this.transitionToRoute('friends.show', friend);
+});
+} else {
+this.set('errorMessage', 'You have to fill all the fields'); }
+return false; },
+cancel: function() { return true;
+} }
+});
+`
 
-export default Ember.Controller.extend({
-	isValid: Ember.computed(
-		'model.email',
-		'model.firstName',
-		'model.lastName',
-		'model.twitter',
-		function() {
-			return !Ember.isEmpty(this.get('model.email')) &&
-			  !Ember.isEmpty(this.get('model.firstName')) &&
-			  !Ember.isEmpty(this.get('model.lastName')) &&
-			  !Ember.isEmpty(this.get('model.twitter'));
-			}
-	),
-	actions: {
-		save: function() {
-			console.log('+- save action in friends new controller');
-			if(this.get('isValid')) {
-				var _this = this;
-				this.get('model').save().then(function(friend) {
-					_this.transitionToRoute('friends.show', friend);
-				});
-			} else {
-				this.set('errorMessage', 'You have to fill all the fields');
-			}
-			return false;
-		},
-		cancel: function() {
-			console.log('+- cancel action in friends new controller');
-			this.transitionToRoute('friends');
-			return false;
-		}
-	}
+const ADD_NEW_CONTROLLER_JS = `
+import FriendsBaseController from './base';
+export default FriendsBaseController.extend({ actions: {
+cancel: function() { this.transitionToRoute('friends.index'); return false;
+} }
+});
+`
+
+const EDIT_CONTROLLER = `
+import FriendsBaseController from './base';
+export default FriendsBaseController.extend({ actions: {
+cancel: function() {
+this.transitionToRoute('friends.show', this.get('model')); return false;
+} }
 });
 `
 
@@ -181,21 +191,58 @@ func createNew(app *EmberApp) pipe.Pipe {
 	return p
 }
 
+
+func createEdit(app *EmberApp) pipe.Pipe {
+	p := pipe.Script(
+		pipe.Exec("ember", "g", "route", 
+			fmt.Sprintf("%s/edit", app.Resource.Name), 
+			fmt.Sprintf("--path=:%s_id/edit", strings.TrimSuffix(app.Resource.Name, "s")),),
+		pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/edit", app.Resource.Name)),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(EDIT_PAGE)),
+			pipe.WriteFile("app/templates/friends/edit.hbs", 0644),
+		),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(EDIT_CONTROLLER)),
+			pipe.WriteFile("app/controllers/friends/edit.js", 0644),
+		),
+	)
+	return p
+}
+
+func createShow(app *EmberApp) pipe.Pipe {
+	p := pipe.Script(
+		pipe.Exec("ember", "g", "route", 
+			fmt.Sprintf("%s/show", app.Resource.Name), 
+			fmt.Sprintf("--path=:%s_id", strings.TrimSuffix(app.Resource.Name, "s")),),
+		pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/show", app.Resource.Name)),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(SHOW_PAGE)),
+			pipe.WriteFile("app/templates/friends/show.hbs", 0644),
+		),
+	)
+	return p
+}
+
+func createBaseController(app *EmberApp) pipe.Pipe {
+	p := pipe.Script(
+		pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/base", app.Resource.Name)),
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(BASE_CONTROLLER)),
+			pipe.WriteFile("app/controllers/friends/base.js", 0644),
+		),
+	)
+	return p
+}
+
 func createBasic(app *EmberApp) pipe.Pipe {
 	p := pipe.Script(
 		createIndex(app),
 		createForm(app),
+		createBaseController(app),
 		createNew(app),
-		//pipe.Exec("ember", "g", "route", fmt.Sprintf("%s/new", app.Resource.Name)),
-		pipe.Exec("ember", "g", "route", 
-			fmt.Sprintf("%s/show", app.Resource.Name), 
-			fmt.Sprintf("--path=:%s_id", strings.TrimSuffix(app.Resource.Name, "s")),),
-		pipe.Exec("ember", "g", "route", 
-			fmt.Sprintf("%s/edit", app.Resource.Name), 
-			fmt.Sprintf("--path=:%s_id/edit", strings.TrimSuffix(app.Resource.Name, "s")),),
-		//pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/base", app.Resource.Name)),
-		//pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/new", app.Resource.Name)),
-		//pipe.Exec("ember", "g", "controller", fmt.Sprintf("%s/edit", app.Resource.Name)),
+		createEdit(app),
+		createShow(app),
 	)
 	return p
 }
