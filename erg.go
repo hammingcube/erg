@@ -51,23 +51,31 @@ const FORM = `
 
 const INDEX = `
 <h1>Friends Index</h1>
-{{! The context here is the controller}} 
-<h2>Total friends: {{model.length}}</h2>
-<ul>
-{{#each model as |friend|}}
-<li>
-    {{#link-to 'friends.show' friend}}
-      {{friend.firstName}} {{friend.lastName}}
-    {{/link-to}}
-</li>
+<h2>Friends: {{model.length}}</h2>
+<table>
+  <thead>
+<tr> <th>Name</th> <th></th>
+    </tr>
+  </thead>
+<tbody>
+    {{#each model as |friend|}}
+<tr>
+<td>{{link-to friend.firstName "friends.show" friend}}</td> <td><a href="#" {{action "delete" friend}}>Delete</a></td>
+</tr>
 {{/each}}
-
-</ul>
+  </tbody>
+</table>
 `
 const SHOW_PAGE = `
 <ul>
-<li>First Name: {{model.firstName}}</li> <li>Last Name: {{model.lastName}}</li> <li>Email: {{model.email}}</li> <li>twitter: {{model.twitter}}</li>
+<li>First Name: {{model.firstName}}</li>
+<li>Last Name: {{model.lastName}}</li>
+<li>Email: {{model.email}}</li>
+<li>twitter: {{model.twitter}}</li>
+<li>{{link-to "Edit info" "friends.edit" model}}</li>
+<li><a href="#" {{action "delete" model}}>Delete</a></li>
 </ul>
+
 `
 
 const INDEX_ROUTE = `
@@ -102,6 +110,15 @@ return false; },
 cancel: function() { return true;
 } }
 });
+`
+
+const FRIENDS_ROUTE = `
+import Ember from 'ember';
+export default Ember.Route.extend({ actions: {
+delete: function(friend) { var _this = this;
+friend.destroyRecord().then(function() { _this.transitionTo('friends.index');
+}); }
+} });
 `
 
 const ADD_NEW_CONTROLLER_JS = `
@@ -236,6 +253,16 @@ func createBaseController(app *EmberApp) pipe.Pipe {
 	return p
 }
 
+func createDelete(app *EmberApp) pipe.Pipe {
+	p := pipe.Script(
+		pipe.TeeLine(
+			pipe.Read(strings.NewReader(FRIENDS_ROUTE)),
+			pipe.WriteFile("app/routes/friends.js", 0644),
+		),
+	)
+	return p
+}
+
 func createBasic(app *EmberApp) pipe.Pipe {
 	p := pipe.Script(
 		createIndex(app),
@@ -244,6 +271,7 @@ func createBasic(app *EmberApp) pipe.Pipe {
 		createNew(app),
 		createEdit(app),
 		createShow(app),
+		createDelete(app),
 	)
 	return p
 }
